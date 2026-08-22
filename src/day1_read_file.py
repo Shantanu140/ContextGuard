@@ -12,6 +12,7 @@ This is deliberately simple — the point today is to get comfortable with:
 Nothing here is throwaway — this exact "open a file, read its lines" pattern
 is the very first step of every code-reading tool you build from here on.
 """
+"""Hi, My name is Shantanu."""
 
 
 def print_file_lines(file_path):
@@ -53,5 +54,5 @@ def print_file_lines(file_path):
 if __name__ == "__main__":
     # For today, point this at any Python file you have on your laptop.
     # If you're not sure what to try it on, just point it at itself!
-    target_file = "day1_read_file .py"
+    target_file = "day1_read_file.py"
     print_file_lines(target_file)
