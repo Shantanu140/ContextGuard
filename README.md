@@ -1,6 +1,10 @@
 ContextGuard is an AI-powered code review assistant that reasons about changes using their surrounding context, not just the visible diff. Instead of only checking the lines that changed, it maps a change's dependencies across the codebase, retrieves the most relevant related code, and uses an LLM to flag real, cross-file risks a diff-only review would miss. Built for the KPIT Sparkle 2027 "AI-Driven Contextual Reasoning for Software Engineering" track, targeting safety-critical/embedded software workflows where an isolated-looking change can silently break something elsewhere. Currently in active development — Phase 1 (automatic diff-to-function mapping) is complete.
 
+<<<<<<< HEAD
 ## How change-detection works (Phase 1)
+=======
+How change-detection works (Phase 1)
+>>>>>>> 2788cee (Update README)
 Before ContextGuard can reason about a code change, it first needs to know,
 precisely, what changed. This is handled in three steps:
 Reading the diff (`day9_diff_to_functions.py`) — runs `git diff -U0`
@@ -23,4 +27,8 @@ Known current limitations (to be addressed in later phases):
 Calls to built-in functions or external libraries aren't yet
 distinguished from calls to functions defined in the same codebase.
 Only single-file, same-repository changes are analyzed; cross-file
+<<<<<<< HEAD
 dependency resolution comes in the next phase.
+=======
+dependency resolution comes in the next phase.
+>>>>>>> 2788cee (Update README)
