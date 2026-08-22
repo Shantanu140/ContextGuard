@@ -65,13 +65,23 @@ def find_functions_with_calls(file_path):
             # by walking starting from THIS node, not the whole file.
             calls = get_call_names(node)
 
-            functions_found.append(Function(name, params, body_placeholder, calls))
+            # node.end_lineno is given to us for free by Python's ast
+            # module (no extra work) -- it's the last line this function
+            # occupies. Together with node.lineno (the first line), this
+            # gives us the function's full boundary.
+            functions_found.append(
+                Function(
+                    name, params, body_placeholder, calls,
+                    start_line=node.lineno,
+                    end_line=node.end_lineno,
+                )
+            )
 
     return functions_found
 
 
 if __name__ == "__main__":
-    target_file = "day2_count_words.py"
+    target_file = "day3_function_class.py"
 
     functions = find_functions_with_calls(target_file)
 

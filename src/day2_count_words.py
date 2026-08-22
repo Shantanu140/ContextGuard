@@ -15,7 +15,7 @@ suited to a different kind of question.
 def analyze_file(file_path):
     with open(file_path, "r") as f:
         lines = f.readlines()  # a LIST of strings, one per line (same as Day 1)
-
+        
     total_lines = len(lines)  # len() works on lists just like it works on strings
 
     # ---- Building a list of every word in the file ----

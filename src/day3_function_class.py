@@ -14,19 +14,32 @@ container itself and get comfortable with it.
 class Function:
     """Represents one function found in some code."""
 
-    def __init__(self, name, params, body, calls=None):
+    def __init__(self, name, params, body, calls=None, start_line=None, end_line=None):
         # self.X = X means: "store this value on THIS object, permanently,
         # under the label X" -- so we can read it back later as f.name, f.params, etc.
         self.name = name      # a string, e.g. "calculate_total"
         self.params = params  # a list of strings, e.g. ["price", "quantity"]
         self.body = body      # a string containing the function's code
 
-        # `calls` is NEW today: a list of names of other functions this
-        # function calls. We default it to an empty list rather than None,
-        # so callers who don't know about `calls` yet (like Day 3's own
-        # code) don't break -- this is a common, safe way to add a new
-        # optional feature to an existing class without breaking old code.
+        # `calls` (added Day 8): a list of names of other functions this
+        # function calls. Defaults to an empty list rather than None.
         self.calls = calls if calls is not None else []
+
+        # `start_line` / `end_line` (NEW today): which lines of the file
+        # this function occupies. Used to answer "did a changed line fall
+        # inside this function?"
+        self.start_line = start_line
+        self.end_line = end_line
+
+    def contains_line(self, line_number):
+        """
+        Returns True if the given line number falls within this function's
+        boundaries. Returns False if we don't know this function's line
+        range at all (start_line/end_line were never set).
+        """
+        if self.start_line is None or self.end_line is None:
+            return False
+        return self.start_line <= line_number <= self.end_line
 
     def param_count(self):
         """
