@@ -14,12 +14,19 @@ container itself and get comfortable with it.
 class Function:
     """Represents one function found in some code."""
 
-    def __init__(self, name, params, body):
+    def __init__(self, name, params, body, calls=None):
         # self.X = X means: "store this value on THIS object, permanently,
         # under the label X" -- so we can read it back later as f.name, f.params, etc.
         self.name = name      # a string, e.g. "calculate_total"
         self.params = params  # a list of strings, e.g. ["price", "quantity"]
         self.body = body      # a string containing the function's code
+
+        # `calls` is NEW today: a list of names of other functions this
+        # function calls. We default it to an empty list rather than None,
+        # so callers who don't know about `calls` yet (like Day 3's own
+        # code) don't break -- this is a common, safe way to add a new
+        # optional feature to an existing class without breaking old code.
+        self.calls = calls if calls is not None else []
 
     def param_count(self):
         """
@@ -31,7 +38,11 @@ class Function:
     def summary(self):
         """Returns a short, readable one-line description of this function."""
         params_joined = ", ".join(self.params)  # ["a", "b"] -> "a, b"
-        return f"{self.name}({params_joined})  [{self.param_count()} params]"
+        base = f"{self.name}({params_joined})  [{self.param_count()} params]"
+        if self.calls:
+            calls_joined = ", ".join(self.calls)
+            base += f"  -> calls: {calls_joined}"
+        return base
 
     def __str__(self):
         """
