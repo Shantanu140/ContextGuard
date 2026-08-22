@@ -47,11 +47,23 @@ def find_functions_with_calls(file_path):
     """
     Same as Day 7's find_functions, but now each Function object also
     has its `calls` list filled in.
-    """
-    with open(file_path, "r") as f:
-        source_code = f.read()
 
-    tree = ast.parse(source_code, filename=file_path)
+    If the file can't be read or doesn't contain valid Python (a syntax
+    error), this returns an empty list and prints a warning, instead of
+    crashing the whole pipeline over one bad file.
+    """
+    try:
+        with open(file_path, "r") as f:
+            source_code = f.read()
+    except (FileNotFoundError, UnicodeDecodeError) as error:
+        print(f"  [warning] could not read {file_path}: {error}")
+        return []
+
+    try:
+        tree = ast.parse(source_code, filename=file_path)
+    except SyntaxError as error:
+        print(f"  [warning] could not parse {file_path}: {error}")
+        return []
 
     functions_found = []
 
