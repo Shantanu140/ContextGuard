@@ -14,7 +14,17 @@ container itself and get comfortable with it.
 class Function:
     """Represents one function found in some code."""
 
-    def __init__(self, name, params, body, calls=None, start_line=None, end_line=None):
+    def __init__(
+        self,
+        name,
+        params,
+        body,
+        calls=None,
+        start_line=None,
+        end_line=None,
+        class_name=None,
+        self_calls=None,
+    ):
         # self.X = X means: "store this value on THIS object, permanently,
         # under the label X" -- so we can read it back later as f.name, f.params, etc.
         self.name = name      # a string, e.g. "calculate_total"
@@ -30,6 +40,17 @@ class Function:
         # inside this function?"
         self.start_line = start_line
         self.end_line = end_line
+
+        # These are used when the discovered function belongs to a class.
+        # Keeping them optional preserves compatibility with earlier days.
+        self.class_name = class_name
+        self.self_calls = self_calls if self_calls is not None else []
+
+    def qualified_name(self):
+        """Return either 'function' or 'ClassName.method'."""
+        if self.class_name is not None:
+            return f"{self.class_name}.{self.name}"
+        return self.name
 
     def contains_line(self, line_number):
         """
