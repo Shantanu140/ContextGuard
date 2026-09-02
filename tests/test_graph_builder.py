@@ -15,8 +15,13 @@ not only a final pass/fail count)
 """
 
 import subprocess
+import sys
+from types import SimpleNamespace
 
-from graph_builder import _parse_file, build_context
+import numpy as np
+
+from graph_builder import _build_repo_graph, _parse_file, build_context
+from retrieval import build_faiss_index, chunk_python_file, retrieve_related_chunks
 
 
 def make_git_repo(tmp_path):
@@ -123,3 +128,117 @@ def test_build_context_with_no_changes_returns_empty(tmp_path):
     context = build_context(str(tmp_path))
 
     assert context["changed_functions"] == []
+    assert context["related_functions"] == {}
+
+
+def test_cross_file_import_creates_a_repo_graph_edge(tmp_path):
+    write_file(tmp_path, "helper.py", "def helper():\n    return 1\n")
+    write_file(
+        tmp_path,
+        "consumer.py",
+        "from helper import helper\n\ndef caller():\n    return helper()\n",
+    )
+
+    graph, _lookup = _build_repo_graph(str(tmp_path))
+
+    assert ("consumer.caller", "helper.helper") in graph.edges()
+
+
+def test_self_method_creates_exactly_one_repo_graph_edge(tmp_path):
+    write_file(
+        tmp_path,
+        "example.py",
+        """
+class Example:
+    def helper(self):
+        return 1
+
+    def main_method(self):
+        return self.helper()
+""",
+    )
+
+    graph, _lookup = _build_repo_graph(str(tmp_path))
+
+    assert list(graph.edges()).count(
+        ("example.Example.main_method", "example.Example.helper")
+    ) == 1
+
+
+def test_invalid_python_file_is_skipped_without_losing_valid_files(tmp_path):
+    write_file(tmp_path, "valid.py", "def usable():\n    return 1\n")
+    write_file(tmp_path, "legacy.py", 'print "Python 2 syntax"\n')
+
+    graph, _lookup = _build_repo_graph(str(tmp_path))
+
+    assert "valid.usable" in graph
+    assert not any(node.startswith("legacy.") for node in graph.nodes())
+
+
+class FakeEmbeddingModel:
+    """A deterministic stand-in so tests never download a real ML model."""
+
+    def __init__(self, vectors):
+        self.vectors = vectors
+
+    def encode(self, texts, normalize_embeddings=True):
+        return np.array([self.vectors[text] for text in texts], dtype="float32")
+
+
+class FakeIndexFlatIP:
+    """Tiny FAISS-like index used only to test retrieval logic offline."""
+
+    def __init__(self, dimension):
+        self.dimension = dimension
+        self.vectors = None
+
+    def add(self, vectors):
+        self.vectors = vectors
+
+    def search(self, queries, count):
+        scores = queries @ self.vectors.T
+        positions = np.argsort(-scores, axis=1)[:, :count]
+        return np.take_along_axis(scores, positions, axis=1), positions
+
+
+def test_function_chunk_keeps_identity_path_and_source(tmp_path):
+    source = """
+def helper(value):
+    return value + 1
+
+class Worker:
+    def run(self):
+        return helper(1)
+"""
+    file_path = write_file(tmp_path, "sample.py", source)
+
+    chunks = chunk_python_file(str(file_path), str(tmp_path))
+
+    assert [chunk["id"] for chunk in chunks] == ["sample.helper", "sample.Worker.run"]
+    assert chunks[0]["file_path"] == "sample.py"
+    assert "def helper" in chunks[0]["source"]
+    assert "def run" in chunks[1]["source"]
+
+
+def test_retrieval_ranks_matches_and_excludes_the_changed_chunk(monkeypatch):
+    chunks = [
+        {"id": "a.changed", "file_path": "a.py", "qualified_name": "a.changed", "source": "changed"},
+        {"id": "b.related", "file_path": "b.py", "qualified_name": "b.related", "source": "related"},
+        {"id": "c.other", "file_path": "c.py", "qualified_name": "c.other", "source": "other"},
+    ]
+    model = FakeEmbeddingModel(
+        {
+            "changed": [1.0, 0.0],
+            "related": [0.9, 0.1],
+            "other": [0.0, 1.0],
+        }
+    )
+    monkeypatch.setitem(sys.modules, "faiss", SimpleNamespace(IndexFlatIP=FakeIndexFlatIP))
+
+    search_data = build_faiss_index(chunks, model=model)
+    matches = retrieve_related_chunks(
+        "changed", search_data, top_k=2, exclude_ids={"a.changed"}
+    )
+
+    assert [match["id"] for match in matches] == ["b.related", "c.other"]
+    assert matches[0]["score"] > matches[1]["score"]
