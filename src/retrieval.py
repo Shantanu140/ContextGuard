@@ -56,7 +56,7 @@ def chunk_python_file(file_path, repo_path=None):
         full_name = f"{module_name}.{qualified_name}"
         chunks.append(
             {
-                "id": full_name,
+                "chunk_id": full_name, #CHANGE= Changed id to "chunk_id"
                 "file_path": stored_path,
                 "qualified_name": full_name,
                 "source": source,
@@ -161,3 +161,4 @@ def get_context(repo_path, max_hops=2, top_k=5, model=None):
         "graph_context": graph_result["related_functions"],
         "semantic_context": semantic_context,
     }
+chunk.append

@@ -16,7 +16,7 @@ import subprocess
 from day8_function_calls import find_functions_with_calls
 
 
-def get_changed_line_ranges(repo_path):
+def get_changed_line_ranges(repo_path,): 
     """
     Runs `git diff -U0` and returns a dictionary mapping each changed
     filename to a list of changed line numbers (in the NEW version of
