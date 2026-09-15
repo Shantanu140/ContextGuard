@@ -77,7 +77,7 @@ def get_changed_line_ranges(repo_path,):
     return changed
 
 
-def find_changed_functions(repo_path):
+def find_changed_functions(repo_path, max_lines):   #changed parameters= added max_lines
     """
     The full pipeline: figure out which functions were actually touched
     by the current uncommitted changes in this repo.

@@ -161,4 +161,4 @@ def get_context(repo_path, max_hops=2, top_k=5, model=None):
         "graph_context": graph_result["related_functions"],
         "semantic_context": semantic_context,
     }
-chunk.append
+#chunk.append     #remove '#' sign.
