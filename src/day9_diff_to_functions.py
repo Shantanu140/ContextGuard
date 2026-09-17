@@ -25,7 +25,7 @@ def get_changed_line_ranges(repo_path,):
     Example return value:
         {"day1_read_file.py": [13, 14, 15]}
     """
-
+#Checking for any changes through LLM, If it is working as expected
     result = subprocess.run(
         ["git", "diff", "-U0", "--no-color"],
         cwd=repo_path,
