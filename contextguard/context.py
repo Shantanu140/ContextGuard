@@ -43,7 +43,7 @@ def build_full_context(repo_path, top_k=5, max_hops=2):
 
 
 if __name__ == "__main__":
-    repo_path = r"E:\Context Guard\ContextGuard\Working"  # change to your real path
+    repo_path = r"E:\Context Guard\ContextGuard\src"  # change to your real path
     bundle = build_full_context(repo_path)
     for name, ctx in bundle.items():
         print(f"\nChanged: {name}")
