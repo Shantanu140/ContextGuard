@@ -14,6 +14,9 @@ from contextguard.context import build_full_context
 from contextguard.graph import build_repo_graph
 from contextguard.retrieval import chunk_repo
 from contextguard.reasoning import get_structured_review, sort_by_severity
+from contextguard.history import init_db, log_review, get_history
+
+init_db()
 
 
 def show_graph(graph, changed_name, neighbors):
@@ -44,6 +47,8 @@ if st.button("Run Review"):
 
             for changed_name, context in context_bundle.items():
                 issues = sort_by_severity(get_structured_review(client, changed_name, context, chunk_by_name))
+                log_review(repo_path, changed_name, issues)
+
                 st.subheader(f"{changed_name} -- {len(issues)} issue(s)")
 
                 for issue in issues:
@@ -56,3 +61,11 @@ if st.button("Run Review"):
 
                 with st.expander("Dependency graph"):
                     show_graph(graph, changed_name, context["graph_neighbors"])
+
+with st.expander("Session history (past reviews)"):
+    history = get_history()
+    if not history:
+        st.write("No reviews logged yet.")
+    else:
+        for entry in history:
+            st.write(f"**{entry['timestamp']}** -- {entry['changed_function']} -- {entry['issue_count']} issue(s)")
