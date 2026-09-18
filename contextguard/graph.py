@@ -75,13 +75,26 @@ def _parse_imports(tree):
     return import_map
 
 
+def _get_start_line(node):
+    """
+    The real start of a function INCLUDING its decorators, if any --
+    node.lineno alone points to the 'def' line, which sits AFTER any
+    decorator lines. Without this, a diff touching only a decorator
+    line (e.g. changing @app.route("/x")) would fall outside the
+    function's detected range entirely.
+    """
+    if node.decorator_list:
+        return node.decorator_list[0].lineno
+    return node.lineno
+
+
 def _build_function(node, class_name):
     return Function(
         node.name,
         [a.arg for a in node.args.args],
         f"(defined at line {node.lineno})",
         calls=_get_call_names(node),
-        start_line=node.lineno,
+        start_line=_get_start_line(node),
         end_line=node.end_lineno,
         class_name=class_name,
         self_calls=_get_self_call_names(node),
@@ -99,11 +112,11 @@ def parse_file(file_path):
 
     functions = []
     for node in tree.body:
-        if isinstance(node, ast.FunctionDef):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             functions.append(_build_function(node, None))
         elif isinstance(node, ast.ClassDef):
             for child in node.body:
-                if isinstance(child, ast.FunctionDef):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     functions.append(_build_function(child, node.name))
 
     return functions, _parse_imports(tree)

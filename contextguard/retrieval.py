@@ -34,19 +34,29 @@ def chunk_file(file_path):
 
     def make_chunk(node, class_name):
         name = f"{module_name}.{class_name}.{node.name}" if class_name else f"{module_name}.{node.name}"
+
+        # Include decorator lines in the extracted text -- otherwise the
+        # LLM never sees that a function is e.g. @app.route(...) or
+        # @staticmethod, which can matter for review.
+        text = ast.get_source_segment(source, node)
+        if node.decorator_list:
+            decorator_start = node.decorator_list[0].lineno
+            source_lines = source.splitlines()
+            text = "\n".join(source_lines[decorator_start - 1:node.end_lineno])
+
         return {
             "name": name,
-            "text": ast.get_source_segment(source, node),
+            "text": text,
             "docstring": ast.get_docstring(node),
         }
 
     chunks = []
     for node in tree.body:
-        if isinstance(node, ast.FunctionDef):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             chunks.append(make_chunk(node, None))
         elif isinstance(node, ast.ClassDef):
             for child in node.body:
-                if isinstance(child, ast.FunctionDef):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     chunks.append(make_chunk(child, node.name))
     return chunks
 
