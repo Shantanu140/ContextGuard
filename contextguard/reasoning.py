@@ -39,6 +39,9 @@ SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
 def build_prompt(changed_name, context, chunk_by_name):
+    if changed_name not in chunk_by_name:
+        return None  # caller checks for this and skips gracefully
+
     changed_code = chunk_by_name[changed_name]["text"]
 
     neighbors = "\n\n".join(
@@ -64,6 +67,9 @@ SEMANTICALLY SIMILAR FUNCTIONS:
 
 def get_structured_review(client, changed_name, context, chunk_by_name, max_retries=3):
     prompt = build_prompt(changed_name, context, chunk_by_name)
+    if prompt is None:
+        print(f"  [warning] no chunk found for {changed_name}, skipping")
+        return []
 
     for attempt in range(1, max_retries + 1):
         try:
