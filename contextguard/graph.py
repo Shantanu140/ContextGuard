@@ -14,7 +14,7 @@ class Function:
     """Represents one function/method found in the codebase."""
 
     def __init__(self, name, params, body, calls=None, start_line=None,
-                 end_line=None, class_name=None, self_calls=None):
+                 end_line=None, class_name=None, self_calls=None, attr_calls=None):
         self.name = name
         self.params = params
         self.body = body
@@ -23,6 +23,7 @@ class Function:
         self.end_line = end_line
         self.class_name = class_name
         self.self_calls = self_calls if self_calls is not None else []
+        self.attr_calls = attr_calls if attr_calls is not None else []
 
     def qualified_name(self):
         return f"{self.class_name}.{self.name}" if self.class_name else self.name
@@ -66,13 +67,33 @@ def _get_self_call_names(node):
     return calls
 
 
+def _get_attr_calls(node):
+    """Returns [(obj_name, attr_name)] for obj.method() calls (non-self, plain Name object only)."""
+    result = []
+    for n in ast.walk(node):
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute):
+            if isinstance(n.func.value, ast.Name) and n.func.value.id != "self":
+                result.append((n.func.value.id, n.func.attr))
+    return result
+
+
 def _parse_imports(tree):
-    import_map = {}
+    """Returns (from_import_map, module_import_map).
+
+    from_import_map:   name  -> module  for ``from module import name [as alias]``
+    module_import_map: alias -> module  for ``import module [as alias]``
+    """
+    from_import_map = {}
+    module_import_map = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module:
             for alias in node.names:
-                import_map[alias.asname or alias.name] = node.module
-    return import_map
+                from_import_map[alias.asname or alias.name] = node.module
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                local_name = alias.asname if alias.asname else alias.name
+                module_import_map[local_name] = alias.name
+    return from_import_map, module_import_map
 
 
 def _get_start_line(node):
@@ -98,17 +119,21 @@ def _build_function(node, class_name):
         end_line=node.end_lineno,
         class_name=class_name,
         self_calls=_get_self_call_names(node),
+        attr_calls=_get_attr_calls(node),
     )
 
 
 def parse_file(file_path):
-    """Returns (functions, import_map) for one file. Fails gracefully."""
+    """Returns (functions, import_maps) for one file. Fails gracefully.
+
+    import_maps is a tuple (from_import_map, module_import_map).
+    """
     try:
         source = open(file_path, "r").read()
         tree = ast.parse(source, filename=file_path)
     except (FileNotFoundError, UnicodeDecodeError, SyntaxError) as error:
         print(f"  [warning] skipping {file_path}: {error}")
-        return [], {}
+        return [], ({}, {})
 
     functions = []
     for node in tree.body:
@@ -131,8 +156,14 @@ def build_repo_graph(repo_path):
     file_data = {}
     for file_path in find_python_files(repo_path):
         module_name = _module_name(file_path)
-        functions, import_map = parse_file(file_path)
-        file_data[module_name] = {"functions": functions, "import_map": import_map, "file_path": file_path}
+        functions, import_maps = parse_file(file_path)
+        from_import_map, module_import_map = import_maps
+        file_data[module_name] = {
+            "functions": functions,
+            "from_import_map": from_import_map,
+            "module_import_map": module_import_map,
+            "file_path": file_path,
+        }
 
     known_modules = set(file_data.keys())
     graph = nx.DiGraph()
@@ -140,7 +171,8 @@ def build_repo_graph(repo_path):
 
     for module_name, data in file_data.items():
         functions = data["functions"]
-        import_map = data["import_map"]
+        from_import_map = data["from_import_map"]
+        module_import_map = data["module_import_map"]
         standalone_names = {f.name for f in functions if f.class_name is None}
         methods_by_class = {}
         for f in functions:
@@ -155,8 +187,15 @@ def build_repo_graph(repo_path):
             for call_name in func.calls:
                 if call_name in standalone_names:
                     graph.add_edge(qualified, f"{module_name}.{call_name}")
-                elif call_name in import_map and import_map[call_name] in known_modules:
-                    graph.add_edge(qualified, f"{import_map[call_name]}.{call_name}")
+                elif call_name in from_import_map and from_import_map[call_name] in known_modules:
+                    graph.add_edge(qualified, f"{from_import_map[call_name]}.{call_name}")
+
+            # Resolve obj.attr() calls where obj is a module alias from `import module`
+            for obj_name, attr_name in func.attr_calls:
+                if obj_name in module_import_map:
+                    target_module = module_import_map[obj_name]
+                    if target_module in known_modules:
+                        graph.add_edge(qualified, f"{target_module}.{attr_name}")
 
             if func.class_name:
                 siblings = methods_by_class.get(func.class_name, set())

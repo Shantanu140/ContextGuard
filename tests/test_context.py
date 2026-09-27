@@ -69,3 +69,44 @@ def test_build_full_context_graph_neighbors_are_per_function(tmp_path):
     assert bundle["a.x"]["graph_neighbors"] != bundle["b.z"]["graph_neighbors"]
     assert "a.y" in bundle["a.x"]["graph_neighbors"]
     assert bundle["b.z"]["graph_neighbors"] == {}
+
+
+# ---------------------------------------------------------------------------
+# Regression tests: import module / import module as alias cross-file edges
+# ---------------------------------------------------------------------------
+
+def test_import_module_cross_file_edge(tmp_path):
+    """import helper  +  helper.helper()  must produce edge consumer.caller -> helper.helper"""
+    write_file(tmp_path, "helper.py", "def helper():\n    pass\n")
+    write_file(
+        tmp_path,
+        "consumer.py",
+        "import helper\n\ndef caller():\n    helper.helper()\n",
+    )
+    graph, _ = build_repo_graph(str(tmp_path))
+    assert graph.has_edge("consumer.caller", "helper.helper")
+
+
+def test_import_module_as_alias_cross_file_edge(tmp_path):
+    """import helper as h  +  h.helper()  must produce edge consumer.caller -> helper.helper"""
+    write_file(tmp_path, "helper.py", "def helper():\n    pass\n")
+    write_file(
+        tmp_path,
+        "consumer.py",
+        "import helper as h\n\ndef caller():\n    h.helper()\n",
+    )
+    graph, _ = build_repo_graph(str(tmp_path))
+    assert graph.has_edge("consumer.caller", "helper.helper")
+
+
+def test_external_library_import_no_false_edge(tmp_path):
+    """import os  +  os.path.join()  must NOT create any repository graph edge."""
+    write_file(
+        tmp_path,
+        "mymodule.py",
+        "import os\n\ndef caller():\n    os.path.join('a', 'b')\n",
+    )
+    graph, _ = build_repo_graph(str(tmp_path))
+    # No node for anything under 'os' should exist
+    os_nodes = [n for n in graph.nodes if n.startswith("os.")]
+    assert os_nodes == []
